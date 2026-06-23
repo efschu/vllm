@@ -1,0 +1,24 @@
+# Build on top of lmcache/vllm-openai:dev-cu129 (already has CUDA 12.9 + PyTorch + vllm C++ extensions compiled)
+FROM lmcache/vllm-openai:dev-cu129
+
+# Install gguf Python module for GGUF file reading
+RUN pip install --no-cache-dir gguf
+
+# Copy the qwen35 GGUF + MTP support files
+COPY vllm/transformers_utils/gguf_utils.py /usr/local/lib/python3.12/dist-packages/vllm/transformers_utils/
+COPY vllm/model_executor/model_loader/gguf_loader.py /usr/local/lib/python3.12/dist-packages/vllm/model_executor/model_loader/
+COPY vllm/model_executor/layers/quantization/gguf.py /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/quantization/
+COPY vllm/model_executor/models/qwen3_5.py /usr/local/lib/python3.12/dist-packages/vllm/model_executor/models/
+COPY vllm/model_executor/models/qwen3_5_mtp.py /usr/local/lib/python3.12/dist-packages/vllm/model_executor/models/
+COPY vllm/transformers_utils/configs/qwen3_5.py /usr/local/lib/python3.12/dist-packages/vllm/transformers_utils/configs/
+COPY vllm/transformers_utils/configs/qwen3_5_moe.py /usr/local/lib/python3.12/dist-packages/vllm/transformers_utils/configs/
+
+# Clean .pyc cache to ensure new files are loaded
+RUN find /usr/local/lib/python3.12/dist-packages/vllm -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+
+# Verify installation
+RUN python3 -c "import vllm; print('vllm:', vllm.__version__)" \
+    && python3 -c "from vllm.transformers_utils.gguf_utils import is_gguf; print('gguf utils ok')" \
+    && python3 -c "from vllm.model_executor.model_loader.gguf_loader import GGUFModelLoader; print('gguf loader ok')"
+
+CMD ["bash"]
